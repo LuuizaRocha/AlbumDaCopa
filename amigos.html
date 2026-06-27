@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Amigos — Álbum Copa 2026</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,600;14..32,700&display=swap" rel="stylesheet" />
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="dados.js"></script>
+  <style>
+    *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+    :root {
+      --bg:#080a10; --surface:#10141f; --surface2:#171d2d; --surface3:#1f2840;
+      --border:rgba(255,255,255,0.07); --primary:#f7d44a; --primary-dark:#c9a92e;
+      --primary-glow:rgba(247,212,74,0.15); --green:#2ecc71; --green-dark:#25a85d;
+      --green-glow:rgba(46,204,113,0.15); --red:#e74c3c;
+      --text:#edf0f7; --text-secondary:#8892aa; --text-muted:#535e78;
+      --radius-sm:10px; --radius:14px; --radius-lg:20px;
+      --shadow:0 8px 40px rgba(0,0,0,0.7); --ease:cubic-bezier(0.4,0,0.2,1);
+    }
+    body {
+      font-family:'Inter',sans-serif; background:var(--bg); color:var(--text);
+      min-height:100vh; padding:20px; display:flex; justify-content:center;
+      background-image: radial-gradient(ellipse 80% 50% at 10% 0%, rgba(247,212,74,0.04) 0%, transparent 60%);
+    }
+    .container { width:100%; max-width:820px; display:flex; flex-direction:column; gap:16px; }
+
+    .top-bar {
+      display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+      padding:12px 18px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+    }
+    .top-bar-title {
+      font-size:1.1rem; font-weight:700;
+      background:linear-gradient(135deg, var(--primary), #f0b34b);
+      -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+    }
+    .top-bar-actions { margin-left:auto; display:flex; gap:8px; flex-wrap:wrap; }
+
+    .btn {
+      padding:9px 18px; border:none; border-radius:var(--radius-sm);
+      font-weight:600; font-size:0.85rem; cursor:pointer;
+      transition:transform 0.15s var(--ease), box-shadow 0.15s, opacity 0.15s;
+      font-family:inherit; white-space:nowrap;
+    }
+    .btn:active { transform:scale(0.96)!important; }
+    .btn:disabled { opacity:0.45; cursor:not-allowed; }
+    .btn-primary { background:linear-gradient(135deg, var(--primary), var(--primary-dark)); color:#0a0c14; box-shadow:0 4px 16px var(--primary-glow); }
+    .btn-primary:hover:not(:disabled) { transform:translateY(-2px); box-shadow:0 8px 24px rgba(247,212,74,0.3); }
+    .btn-secondary { background:transparent; color:var(--text-secondary); border:1px solid rgba(255,255,255,0.12); }
+    .btn-secondary:hover:not(:disabled) { background:rgba(255,255,255,0.05); border-color:rgba(255,255,255,0.2); transform:translateY(-2px); }
+    .btn-green { background:linear-gradient(135deg, var(--green), var(--green-dark)); color:#0a0c14; box-shadow:0 4px 16px var(--green-glow); }
+    .btn-green:hover:not(:disabled) { transform:translateY(-2px); box-shadow:0 8px 24px rgba(46,204,113,0.3); }
+    .btn-red { background:var(--red); color:#fff; }
+    .btn-red:hover:not(:disabled) { opacity:0.9; transform:translateY(-2px); }
+    .btn-sm { padding:6px 14px; font-size:0.78rem; }
+
+    .tabs-bar {
+      display:flex; gap:4px; padding:4px;
+      background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); overflow-x:auto;
+    }
+    .tab {
+      flex:1; padding:9px 16px; border-radius:var(--radius-sm);
+      background:transparent; border:none; cursor:pointer;
+      color:var(--text-secondary); font-weight:600; font-size:0.85rem;
+      font-family:inherit; transition:background 0.2s, color 0.2s; white-space:nowrap;
+    }
+    .tab.active { background:var(--surface3); color:var(--text); }
+    .tab-badge {
+      display:inline-block; background:var(--primary); color:#0a0c14;
+      font-size:0.65rem; font-weight:700; padding:1px 6px;
+      border-radius:20px; margin-left:5px; vertical-align:middle;
+    }
+    .tab-badge.hidden { display:none; }
+
+    .section-header { display:flex; align-items:center; justify-content:space-between; padding:0 2px; }
+    .section-title { font-size:0.85rem; font-weight:600; color:var(--text-secondary); }
+
+    .friend-list { display:flex; flex-direction:column; gap:10px; }
+
+    .friend-item {
+      display:flex; align-items:center; gap:14px; padding:14px 18px;
+      background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+      transition:border-color 0.2s, background 0.2s;
+    }
+    .friend-item:hover { border-color:rgba(255,255,255,0.12); background:var(--surface2); }
+
+    .friend-avatar {
+      width:48px; height:48px; border-radius:50%; flex-shrink:0;
+      background:var(--surface3); border:2px solid var(--border);
+      overflow:hidden; display:flex; align-items:center; justify-content:center; font-size:1.5rem;
+    }
+    .friend-avatar img { width:100%; height:100%; object-fit:cover; }
+
+    .friend-info { flex:1; min-width:0; }
+    .friend-name { font-weight:600; font-size:0.95rem; color:var(--text); }
+    .friend-sub { font-size:0.78rem; color:var(--text-muted); margin-top:2px; }
+
+    .friend-actions { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+
+    .pending-badge {
+      font-size:0.78rem; color:var(--text-muted);
+      background:var(--surface2); border:1px solid var(--border);
+      padding:4px 12px; border-radius:20px;
+    }
+
+    .empty-state {
+      text-align:center; padding:50px 20px; color:var(--text-secondary);
+      background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+    }
+    .empty-state .icon { font-size:2.5rem; margin-bottom:10px; }
+    .empty-state p { font-size:0.9rem; }
+
+    .modal-overlay {
+      position:fixed; inset:0; background:rgba(0,0,0,0.75);
+      backdrop-filter:blur(10px); display:flex; align-items:center;
+      justify-content:center; z-index:1000;
+    }
+    .modal-overlay.hidden { display:none!important; }
+    .modal {
+      background:var(--surface2); border:1px solid var(--border);
+      border-radius:var(--radius-lg); padding:28px; width:90%; max-width:480px;
+      box-shadow:var(--shadow); max-height:90vh; overflow-y:auto;
+    }
+    .modal-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
+    .modal-header h3 { font-size:1.1rem; font-weight:700; }
+    .modal-close {
+      background:transparent; border:none; color:var(--text-muted);
+      font-size:1.4rem; cursor:pointer; padding:4px; border-radius:6px;
+      transition:color 0.2s, background 0.2s;
+    }
+    .modal-close:hover { color:var(--text); background:rgba(255,255,255,0.08); }
+
+    .search-input {
+      width:100%; padding:12px 16px;
+      background:var(--surface); border:1px solid rgba(255,255,255,0.1);
+      color:var(--text); border-radius:var(--radius-sm); font-family:inherit;
+      font-size:0.9rem; outline:none; transition:border-color 0.2s;
+      margin-bottom:12px;
+    }
+    .search-input:focus { border-color:var(--primary); }
+    .search-input::placeholder { color:var(--text-muted); }
+
+    .search-result-item {
+      display:flex; align-items:center; gap:12px; padding:12px;
+      background:var(--surface); border:1px solid var(--border);
+      border-radius:var(--radius-sm); margin-bottom:8px;
+      transition:border-color 0.2s;
+    }
+    .search-result-item:hover { border-color:rgba(255,255,255,0.15); }
+    .search-result-item .name { flex:1; font-weight:600; color:var(--text); }
+
+    .friend-profile-header {
+      display:flex; align-items:center; gap:16px; margin-bottom:20px;
+    }
+    .friend-profile-avatar {
+      width:64px; height:64px; border-radius:50%; background:var(--surface3);
+      border:3px solid var(--primary); overflow:hidden;
+      display:flex; align-items:center; justify-content:center; font-size:2rem;
+    }
+    .friend-profile-avatar img { width:100%; height:100%; object-fit:cover; }
+    .friend-missing-list { max-height:340px; overflow-y:auto; display:flex; flex-direction:column; gap:6px; }
+    .friend-missing-item {
+      display:flex; align-items:center; gap:8px; padding:8px 12px;
+      background:var(--surface); border-radius:8px; font-size:0.82rem;
+    }
+    .friend-missing-item .num { color:var(--text-muted); font-size:0.72rem; min-width:24px; }
+    .friend-missing-item .name { flex:1; color:var(--text); }
+    .friend-missing-item .country { color:var(--text-muted); font-size:0.72rem; }
+
+    .toast {
+      position:fixed; bottom:28px; left:50%; transform:translateX(-50%) translateY(20px);
+      background:rgba(15,20,35,0.95); backdrop-filter:blur(16px); color:var(--text);
+      padding:11px 24px; border-radius:40px; font-weight:600; font-size:0.9rem;
+      box-shadow:0 8px 32px rgba(0,0,0,0.5); z-index:2000;
+      opacity:0; transition:opacity 0.25s, transform 0.25s var(--ease);
+      pointer-events:none; border:1px solid rgba(255,255,255,0.1);
+    }
+    .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+
+    .needs-username-notice {
+      background:rgba(247,212,74,0.08); border:1px solid rgba(247,212,74,0.2);
+      border-radius:var(--radius); padding:14px 18px;
+      font-size:0.85rem; color:var(--primary);
+    }
+    .needs-username-notice a { color:var(--primary); font-weight:600; }
+    .needs-username-notice.hidden { display:none!important; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <div class="top-bar">
+    <span class="top-bar-title">👥 Amigos</span>
+    <div class="top-bar-actions">
+      <button class="btn btn-secondary" onclick="location.href='index.html'">← Álbum</button>
+      <button class="btn btn-secondary" onclick="location.href='perfil.html'">👤 Perfil</button>
+      <button class="btn btn-secondary" id="logoutBtnA">Sair</button>
+    </div>
+  </div>
+
+  <div class="needs-username-notice hidden" id="noUsernameNotice">
+    ⚠️ Você precisa de um nome de usuário para adicionar amigos.
+    <a href="perfil.html">Configure no perfil →</a>
+  </div>
+
+  <div class="section-header">
+    <span class="section-title" id="tabLabel">Amigos</span>
+    <button class="btn btn-primary btn-sm" id="addFriendBtn" disabled>+ Adicionar amigo</button>
+  </div>
+
+  <div class="tabs-bar">
+    <button class="tab active" data-tab="friends">Amigos</button>
+    <button class="tab" data-tab="received">Recebidos <span class="tab-badge hidden" id="badgeReceived">0</span></button>
+    <button class="tab" data-tab="sent">Enviados</button>
+  </div>
+
+  <div class="friend-list" id="friendList">
+    <div class="empty-state"><div class="icon">⏳</div><p>Carregando...</p></div>
+  </div>
+</div>
+
+<!-- Modal busca -->
+<div id="searchModal" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>🔍 Buscar usuário</h3>
+      <button class="modal-close" id="closeSearchBtn">✕</button>
+    </div>
+    <input type="text" class="search-input" id="searchInput" placeholder="Digite o nome de usuário..." />
+    <div id="searchResults"></div>
+  </div>
+</div>
+
+<div class="toast" id="toastEl"></div>
+
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyDzkmadkh_Bc32ME52RKqCOG6TMP3m5K0s",
+    authDomain: "albumcopa2026-d8be9.firebaseapp.com",
+    projectId: "albumcopa2026-d8be9",
+    storageBucket: "albumcopa2026-d8be9.firebasestorage.app",
+    messagingSenderId: "610473055437",
+    appId: "1:610473055437:web:3d3493c3580f4cdb2dc584"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const auth = firebase.auth();
+  const db   = firebase.firestore();
+
+  let currentUser = null;
+  let currentTab = 'friends';
+  let toastTimer;
+
+  function showToast(msg, type='') {
+    const t = document.getElementById('toastEl');
+    t.textContent = msg;
+    t.className = 'toast' + (type ? ' '+type : '');
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show'), 2600);
+  }
+
+  auth.onAuthStateChanged(async (user) => {
+    if (!user) { location.href = 'index.html'; return; }
+    currentUser = user;
+    document.getElementById('logoutBtnA').addEventListener('click', () =>
+      auth.signOut().then(() => location.href = 'index.html')
+    );
+    const profileDoc = await db.collection('users').doc(user.uid).get();
+    const hasUsername = profileDoc.exists && profileDoc.data().username;
+    if (hasUsername) {
+      document.getElementById('addFriendBtn').disabled = false;
+    } else {
+      document.getElementById('noUsernameNotice').classList.remove('hidden');
+    }
+    await loadList();
+    await updateBadges();
+  });
+
+  async function updateBadges() {
+    const snap = await db.collection('users').doc(currentUser.uid).collection('incomingRequests').get();
+    const badge = document.getElementById('badgeReceived');
+    if (snap.size > 0) {
+      badge.textContent = snap.size;
+      badge.classList.remove('hidden');
+    } else {
+      badge.classList.add('hidden');
+    }
+  }
+
+  /* ===== TABS ===== */
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', async () => {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      currentTab = tab.dataset.tab;
+      const labels = { friends:'Amigos', received:'Solicitações recebidas', sent:'Solicitações enviadas' };
+      document.getElementById('tabLabel').textContent = labels[currentTab];
+      await loadList();
+    });
+  });
+
+  async function loadList() {
+    const list = document.getElementById('friendList');
+    list.innerHTML = '<div class="empty-state"><div class="icon">⏳</div><p>Carregando...</p></div>';
+    const uid = currentUser.uid;
+    let col;
+    if (currentTab === 'friends')   col = db.collection('users').doc(uid).collection('friends');
+    else if (currentTab === 'received') col = db.collection('users').doc(uid).collection('incomingRequests');
+    else col = db.collection('users').doc(uid).collection('outgoingRequests');
+
+    const snap = await col.get();
+    list.innerHTML = '';
+    if (snap.empty) {
+      const msgs = { friends:'Você ainda não tem amigos.', received:'Sem solicitações pendentes.', sent:'Nenhuma solicitação enviada.' };
+      list.innerHTML = `<div class="empty-state"><div class="icon">👥</div><p>${msgs[currentTab]}</p></div>`;
+      return;
+    }
+
+    const promises = [];
+    snap.forEach(doc => promises.push(renderItem(list, doc)));
+    await Promise.all(promises);
+  }
+
+  async function renderItem(container, doc) {
+    const data = doc.data();
+    let friendUid, name, photoBase64;
+
+    if (currentTab === 'friends') {
+      friendUid = doc.id;
+      // Tenta usar dados embutidos no doc de amizade
+      name = data.username || '';
+      photoBase64 = data.photoBase64 || '';
+      // Fallback: busca do perfil do amigo (amizades antigas nao tem username/foto embutido)
+      if (!name) {
+        try {
+          const fd = await db.collection('users').doc(friendUid).get();
+          const fdata = fd.exists ? fd.data() : {};
+          name = fdata.username || 'Usuário';
+          photoBase64 = photoBase64 || fdata.photoBase64 || '';
+          // Atualiza o doc de amizade para nao precisar buscar na proxima vez
+          if (fdata.username) {
+            db.collection('users').doc(currentUser.uid).collection('friends').doc(friendUid)
+              .update({ username: fdata.username, photoBase64: fdata.photoBase64 || '' })
+              .catch(() => {});
+          }
+        } catch(e) {
+          name = 'Usuário';
+        }
+      }
+    } else if (currentTab === 'received') {
+      friendUid = data.fromUid;
+      name = data.fromUsername || 'Usuário';
+      photoBase64 = data.fromPhotoBase64 || '';
+    } else {
+      friendUid = data.toUid;
+      name = data.toUsername || 'Usuário';
+      photoBase64 = '';
+    }
+
+    const div = document.createElement('div');
+    div.className = 'friend-item';
+    const avatarHtml = photoBase64
+      ? `<div class="friend-avatar"><img src="${photoBase64}" alt=""/></div>`
+      : `<div class="friend-avatar">👤</div>`;
+
+    let actionsHtml = '';
+    if (currentTab === 'friends') {
+      actionsHtml = `
+        <button class="btn btn-secondary btn-sm view-missing-btn">Ver faltantes</button>
+        <button class="btn btn-primary btn-sm profile-btn">Ver perfil</button>
+      `;
+    } else if (currentTab === 'received') {
+      actionsHtml = `<button class="btn btn-green btn-sm accept-btn">Aceitar</button>`;
+    } else {
+      actionsHtml = `<button class="btn btn-red btn-sm cancel-btn">Cancelar</button>`;
+    }
+
+    div.innerHTML = `
+      ${avatarHtml}
+      <div class="friend-info">
+        <div class="friend-name">${name}</div>
+        <div class="friend-sub">${currentTab === 'friends' ? 'Amigo(a)' : currentTab === 'received' ? 'Solicitação recebida' : 'Aguardando resposta'}</div>
+      </div>
+      <div class="friend-actions">${actionsHtml}</div>
+    `;
+
+    if (currentTab === 'friends') {
+      div.querySelector('.view-missing-btn').addEventListener('click', () => openFriendMissing(friendUid, name, photoBase64));
+      div.querySelector('.profile-btn').addEventListener('click', () => {
+        location.href = `perfil.html?uid=${friendUid}`;
+      });
+    } else if (currentTab === 'received') {
+      div.querySelector('.accept-btn').addEventListener('click', async () => {
+        const btn = div.querySelector('.accept-btn');
+        btn.disabled = true;
+        btn.textContent = '...';
+        await acceptRequest(friendUid);
+        // Mudar para aba Amigos
+        currentTab = 'friends';
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        const friendsTab = document.querySelector('.tab[data-tab="friends"]');
+        if (friendsTab) friendsTab.classList.add('active');
+        document.getElementById('tabLabel').textContent = 'Amigos';
+        await loadList();
+        await updateBadges();
+      });
+    } else if (currentTab === 'sent') {
+      div.querySelector('.cancel-btn').addEventListener('click', async () => {
+        if (confirm(`Cancelar solicitação para ${name}?`)) {
+          await cancelRequest(friendUid);
+          await loadList();
+          await updateBadges();
+        }
+      });
+    }
+
+    container.appendChild(div);
+  }
+
+  async function acceptRequest(fromUid) {
+    const myUid = currentUser.uid;
+    try {
+      const now = new Date();
+
+      // Pega os dados do pedido recebido (ja temos username/foto do remetente aqui)
+      const incomingSnap = await db.collection('users').doc(myUid).collection('incomingRequests').doc(fromUid).get();
+      const incomingData = incomingSnap.exists ? incomingSnap.data() : {};
+
+      // Pega nossos proprios dados (temos permissao de ler nosso proprio doc)
+      const myDoc = await db.collection('users').doc(myUid).get();
+      const myData = myDoc.exists ? myDoc.data() : {};
+
+      const batch = db.batch();
+
+      // 1. Remove as solicitacoes entre os dois
+      batch.delete(db.collection('users').doc(myUid).collection('incomingRequests').doc(fromUid));
+      batch.delete(db.collection('users').doc(fromUid).collection('outgoingRequests').doc(myUid));
+
+      // 2. Verifica pedido mutuo e cancela
+      const myOutgoingSnap = await db.collection('users').doc(myUid).collection('outgoingRequests').doc(fromUid).get();
+      if (myOutgoingSnap.exists) {
+        batch.delete(db.collection('users').doc(myUid).collection('outgoingRequests').doc(fromUid));
+        batch.delete(db.collection('users').doc(fromUid).collection('incomingRequests').doc(myUid));
+      }
+
+      // 3. Cria amizade nos dois lados com nome+foto embutidos (evita leitura cruzada depois)
+      batch.set(db.collection('users').doc(myUid).collection('friends').doc(fromUid), {
+        since: now,
+        username: incomingData.fromUsername || '',
+        photoBase64: incomingData.fromPhotoBase64 || ''
+      });
+      batch.set(db.collection('users').doc(fromUid).collection('friends').doc(myUid), {
+        since: now,
+        username: myData.username || '',
+        photoBase64: myData.photoBase64 || ''
+      });
+
+      await batch.commit();
+
+      showToast('Amizade aceita!', 'success');
+    } catch (err) {
+      console.error(err);
+      showToast('Erro ao aceitar. Verifique sua conexao.', 'error');
+    }
+  }
+
+  async function cancelRequest(toUid) {
+    const myUid = currentUser.uid;
+    try {
+      await db.collection('users').doc(myUid).collection('outgoingRequests').doc(toUid).delete();
+      await db.collection('users').doc(toUid).collection('incomingRequests').doc(myUid).delete();
+      showToast('Solicitação cancelada.', 'success');
+    } catch (err) {
+      console.error(err);
+      showToast('Erro ao cancelar.', 'error');
+    }
+  }
+
+  async function openFriendMissing(uid, name, photoBase64) {
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+      <div class="modal">
+        <div class="modal-header">
+          <div class="friend-profile-header" style="flex:1; margin-bottom:0;">
+            <div class="friend-profile-avatar">${photoBase64 ? `<img src="${photoBase64}" />` : '👤'}</div>
+            <div>
+              <div style="font-size:1.1rem; font-weight:700;">${name}</div>
+              <div style="font-size:0.8rem; color:var(--text-secondary);" id="missingSub">Figurinhas faltando:</div>
+            </div>
+          </div>
+          <button class="modal-close" id="closeMissingModal">✕</button>
+        </div>
+        <div class="friend-missing-list" id="missingList">Carregando...</div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+
+    const closeBtn = modal.querySelector('#closeMissingModal');
+    closeBtn.addEventListener('click', () => modal.remove());
+    modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+
+    const list = modal.querySelector('#missingList');
+    const doc = await db.collection('users').doc(uid).get();
+    const stickers = doc.exists ? (doc.data().stickers || {}) : {};
+    list.innerHTML = '';
+    let count = 0;
+
+    for (let i = 0; i < rawCountries.length; i++) {
+      const page = rawCountries[i];
+      const slots = page.slots || DEFAULT_SLOTS;
+      for (let s = 0; s < slots; s++) {
+        const key = `${i}_${s}`;
+        if (!stickers[key]) {
+          const label = getStickerLabel(i, s);
+          if (!label) continue;
+          const div = document.createElement('div');
+          div.className = 'friend-missing-item';
+          div.innerHTML = `<span class="num">${getStickerNumber(i, s)}</span><span class="name">${label}</span><span class="country">${page.name}</span>`;
+          list.appendChild(div);
+          count++;
+        }
+      }
+    }
+
+    modal.querySelector('#missingSub').textContent = `${count} figurinhas faltando`;
+    if (count === 0) {
+      list.innerHTML = '<div class="empty-state"><div class="icon">🏆</div><p>Álbum completo!</p></div>';
+    }
+  }
+
+  /* ===== BUSCA ===== */
+  document.getElementById('addFriendBtn').addEventListener('click', () => {
+    document.getElementById('searchInput').value = '';
+    document.getElementById('searchResults').innerHTML = '';
+    document.getElementById('searchModal').classList.remove('hidden');
+    document.getElementById('searchInput').focus();
+  });
+  document.getElementById('closeSearchBtn').addEventListener('click', () => {
+    document.getElementById('searchModal').classList.add('hidden');
+  });
+  document.getElementById('searchModal').addEventListener('click', e => {
+    if (e.target === document.getElementById('searchModal'))
+      document.getElementById('searchModal').classList.add('hidden');
+  });
+
+  let searchTimeout;
+  document.getElementById('searchInput').addEventListener('input', e => {
+    clearTimeout(searchTimeout);
+    const q = e.target.value.trim().toLowerCase();
+    const resultsDiv = document.getElementById('searchResults');
+    if (q.length < 2) { resultsDiv.innerHTML = ''; return; }
+    resultsDiv.innerHTML = '<p style="color:var(--text-muted); font-size:0.85rem;">Buscando...</p>';
+    searchTimeout = setTimeout(async () => {
+      const snap = await db.collection('usernames')
+        .where('__name__', '>=', q)
+        .where('__name__', '<=', q + '\uf8ff')
+        .limit(8).get();
+      resultsDiv.innerHTML = '';
+      if (snap.empty) {
+        resultsDiv.innerHTML = '<p style="color:var(--text-muted); font-size:0.85rem;">Nenhum usuário encontrado.</p>';
+        return;
+      }
+      snap.forEach(doc => {
+        if (doc.data().uid === currentUser.uid) return;
+        const div = document.createElement('div');
+        div.className = 'search-result-item';
+        div.innerHTML = `<span class="name">${doc.id}</span><button class="btn btn-primary btn-sm">Adicionar</button>`;
+        div.querySelector('button').addEventListener('click', async () => {
+          await sendRequest(doc.data().uid, doc.id);
+          document.getElementById('searchModal').classList.add('hidden');
+        });
+        resultsDiv.appendChild(div);
+      });
+    }, 350);
+  });
+
+  async function sendRequest(toUid, toUsername) {
+    const fromUid = currentUser.uid;
+    const fromDoc = await db.collection('users').doc(fromUid).get();
+    const fromData = fromDoc.data() || {};
+
+    const existingFriend = await db.collection('users').doc(fromUid).collection('friends').doc(toUid).get();
+    if (existingFriend.exists) { showToast('Vocês já são amigos!'); return; }
+    // Checa também no lado oposto (para corrigir casos onde a amizade ficou gravada só em um lado)
+    const existingFriendReverse = await db.collection('users').doc(toUid).collection('friends').doc(fromUid).get();
+    if (existingFriendReverse.exists) {
+      // Corrige: grava no nosso lado também e avisa
+      await db.collection('users').doc(fromUid).collection('friends').doc(toUid).set({ since: new Date() });
+      showToast('Vocês já são amigos!');
+      await loadList();
+      return;
+    }
+    const existingReq = await db.collection('users').doc(fromUid).collection('outgoingRequests').doc(toUid).get();
+    if (existingReq.exists) { showToast('Solicitação já enviada.'); return; }
+    // Checa se a outra pessoa já enviou pedido para nós (aceita automaticamente)
+    const incomingFromThem = await db.collection('users').doc(fromUid).collection('incomingRequests').doc(toUid).get();
+    if (incomingFromThem.exists) { showToast('Você já recebeu um pedido desta pessoa! Aceite na aba "Recebidos".'); return; }
+
+    await db.collection('users').doc(fromUid).collection('outgoingRequests').doc(toUid).set({
+      toUid, toUsername, status: 'pending'
+    });
+    await db.collection('users').doc(toUid).collection('incomingRequests').doc(fromUid).set({
+      fromUid, fromUsername: fromData.username || '', fromPhotoBase64: fromData.photoBase64 || '', status: 'pending'
+    });
+    showToast(`✅ Solicitação enviada para ${toUsername}!`, 'success');
+  }
+</script>
+</body>
+</html>
